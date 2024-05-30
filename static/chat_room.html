@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            * {
+                margin: 0px;
+                padding: 0px;
+                box-sizing: border-box;
+            }
+
+            html, body {
+                height: 100vh;
+            }
+
+            .container {
+                display: grid;
+                gap: 8px;
+                padding: 8px;
+                height: 100%;
+                grid-template-rows: min-content auto min-content;
+            }
+
+            .chat {
+                overflow: auto;
+            }
+
+            .chat div {
+                padding: 8px;
+                margin-bottom: 8px;
+                background-color: cornflowerblue;
+                border-radius: 5px;
+            }
+
+            .controls {
+                display: grid;
+                grid-template-columns: auto min-content;
+                gap: 8px;
+            }
+
+            .controls input {
+                padding: 8px;
+                border-radius: 5px;
+                border: 1px solid gray;
+            }
+
+            
+            .controls button {
+                padding: 8px;
+                border-radius: 5px;
+                background-color: blue;
+                border: 1px solid blue;
+                color: white;
+                transition: all 100ms;
+            }
+
+            .controls button:hover {
+                background-color: navy;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <header>
+            <h3>Room {{ .roomid }} - User: {{ .userid }}</h3>  
+        </header>
+
+            <div id="chat" class="chat">
+
+            </div>
+
+            <footer class="controls">
+                <input placeholder="Message" id="message" /> <button onclick="send()">Send</button>
+            </footer>
+        </div>
+
+        <script>
+
+            function send() {
+                const msg = document.getElementById("message")
+
+                fetch("/room/{{ .roomid }}", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        userid: "{{ .userid }}",
+                        text: msg.value
+                    })
+                })
+                .then(r => {
+                    if (r.status === 200) {
+                        msg.value = ''
+                    }
+                })
+            }
+
+            (function() {
+
+                const messageInput = document.getElementById("message")
+                messageInput.onkeydown = (ev) => {
+                    if (ev.key !== "Enter") return
+
+                    ev.preventDefault()
+
+                    send()
+                }
+                const chat = document.getElementById("chat")
+
+                function startSSE() {
+                    const sse = new EventSource("/room/{{ .roomid }}/stream")
+                    sse.addEventListener("message", (ev) => {
+                        const div = document.createElement("div")
+                        div.innerText = ev.data
+                        chat.appendChild(div)
+
+                        chat.scroll({
+                            top: chat.clientHeight
+                        })
+                    })
+
+                    sse.onerror = (ev) => {
+                        console.error(ev)
+                        sse.close()
+                        setTimeout(startSSE, 5000)
+                    }
+                }
+
+                startSSE()
+            })()
+        </script>
+    </body>
+</html>
